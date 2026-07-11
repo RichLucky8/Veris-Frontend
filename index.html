@@ -37,10 +37,17 @@
                 return;
             }
             // НАСТРОЙКА ВИДЖЕТА. Замени 'YOUR_KEY' на реальные значения!
+           // 
+    // 
+    fetch('https://veris-j7ia.onrender.com/api/get-kyc-token') // 
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) throw new Error("Ошибка получения ключа");
+            
+            // Теперь инициализируем виджет с данными от сервера
             window.KYCWidget.setupKYC({
-                scenarioId: "e5c76130-55fa-11f1-bc77-d27c3d5d9320", // <- Вставь свой Scenario ID
-                clientKey: "wIDtqkDNh9MIe8u5Zd3udOiq9D6F235GVjVBWspo2W0=",   // <- Вставь свой Client Key
-                clientUser: "user_" + Math.floor(Math.random() * 10000), // Временная генерация ID пользователя для тестов
+                scenarioId: data.scenarioId,
+                clientKey: data.encryptedKey, 
                 theme: "light",
                 topOffset: 0,
                 bottomOffset: 0,
@@ -49,9 +56,11 @@
                 },
                 successCb: function (payload) {
                     console.log("SUCCESS CALLBACK", payload);
-                    alert("Верификация успешно пройдена!"); // Покажем окошко при успехе
+                    alert("Верификация успешно пройдена!");
                 }
             });
+        })
+        .catch(err => console.error("Ошибка инициализации:", err));
         }
 
         // Подгружаем скрипт при загрузке страницы
