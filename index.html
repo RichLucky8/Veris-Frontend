@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veris NeoBank</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+    </style>
+
+    <script>
+        function loadKYCWidgetScript(callback) {
+            if (window.KYCWidget) {
+                callback();
+                return;
+            }
+            const existingScript = document.getElementById("kyc-widget-script-id");
+            if (existingScript) return;
+
+            const script = document.createElement("script");
+            script.id = "kyc-widget-script-id";
+            // Внимание: Адрес скрипта из сообщения Андрея
+            script.src = "https://kyc.neuro-vision.ru/lib/widget-lib.js";
+            script.defer = true;
+            script.crossOrigin = "anonymous";
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+
+        function openKYCWidget() {
+            if (!window.KYCWidget) {
+                console.error("KYCWidget is not loaded yet.");
+                return;
+            }
+            // НАСТРОЙКА ВИДЖЕТА. Замени 'YOUR_KEY' на реальные значения!
+            window.KYCWidget.setupKYC({
+                scenarioId: "YOUR_SCENARIO_ID", // <- Вставь свой Scenario ID
+                clientKey: "YOUR_CLIENT_KEY",   // <- Вставь свой Client Key
+                clientUser: "user_" + Math.floor(Math.random() * 10000), // Временная генерация ID пользователя для тестов
+                theme: "light",
+                topOffset: 0,
+                bottomOffset: 0,
+                closeCb: function () {
+                    console.log("CLOSE CALLBACK");
+                },
+                successCb: function (payload) {
+                    console.log("SUCCESS CALLBACK", payload);
+                    alert("Верификация успешно пройдена!"); // Покажем окошко при успехе
+                }
+            });
+        }
+
+        // Подгружаем скрипт при загрузке страницы
+        document.addEventListener("DOMContentLoaded", function () {
+            const button = document.getElementById("open-widget-btn");
+            loadKYCWidgetScript(function () {
+                button.disabled = false; // Включаем кнопку, когда скрипт загрузился
+            });
+            button.addEventListener("click", openKYCWidget);
+        });
+    </script>
+</head>
+<body>
+    <div class="card">
+        <h2>Добро пожаловать в Veris</h2>
+        <p>Для выпуска виртуальной карты необходимо пройти верификацию.</p>
+        <button id="open-widget-btn" disabled>Пройти KYC (NeuroVision)</button>
+    </div>
+</body>
+</html>
