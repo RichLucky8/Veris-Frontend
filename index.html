@@ -11,9 +11,10 @@
         button:hover { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-    const tg = window.Telegram.WebApp;
-    const tgUserId = String(tg.initDataUnsafe?.user?.id || "test_user_123");
+    const tg = window.Telegram?.WebApp;
+    const tgUserId = String(tg?.initDataUnsafe?.user?.id || "test_user_123");
 
     // ЭКРАН 3: ФИНАЛ. Рисуем оплаченную карту
     function showCard() {
