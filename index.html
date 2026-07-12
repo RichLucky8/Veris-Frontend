@@ -55,9 +55,33 @@
                     console.log("CLOSE CALLBACK");
                 },
                 successCb: function (payload) {
-                    console.log("SUCCESS CALLBACK", payload);
-                    alert("Верификация успешно пройдена!");
-                }
+                console.log("SUCCESS CALLBACK", payload);
+                
+                // Находим стартовый блок на экране
+                const cardContainer = document.querySelector('.card');
+                
+                // Заменяем приветствие и кнопку на дизайн готовой карты
+                cardContainer.innerHTML = `
+                    <h2 style="color: #28a745;">✓ Личность подтверждена</h2>
+                    <p style="margin-bottom: 20px;">Ваша виртуальная корпоративная карта выпущена.</p>
+                    
+                    <div style="background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%); color: white; padding: 20px; border-radius: 12px; text-align: left; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                            <strong style="font-size: 18px;">Veris Business</strong>
+                            <span style="font-style: italic; color: #00ff88;">USDT</span>
+                        </div>
+                        <div style="font-family: monospace; font-size: 22px; letter-spacing: 2px; margin-bottom: 15px;">
+                            4532 01** **** 8877
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc; text-transform: uppercase;">
+                            <span>IVAN V.</span>
+                            <span>12/28</span>
+                        </div>
+                    </div>
+                    
+                    <button style="margin-top: 25px; background-color: #28a745; width: 100%;" onclick="window.Telegram.WebApp.close()">Закрыть приложение</button>
+                `;
+            }
             });
         })
         .catch(err => console.error("Ошибка инициализации:", err));
