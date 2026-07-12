@@ -12,16 +12,15 @@
         button:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
 <script>
-    // Получаем Telegram ID текущего пользователя
     const tg = window.Telegram.WebApp;
-    const tgUserId = tg.initDataUnsafe?.user?.id || "test_user_123";
+    const tgUserId = String(tg.initDataUnsafe?.user?.id || "test_user_123");
 
-    // Функция, которая рисует красивую карту
+    // ЭКРАН 3: ФИНАЛ. Рисуем оплаченную карту
     function showCard() {
         const cardContainer = document.querySelector('.card');
         cardContainer.innerHTML = `
-            <h2 style="color: #28a745;">✓ Личность подтверждена</h2>
-            <p style="margin-bottom: 20px;">Ваша виртуальная корпоративная карта выпущена.</p>
+            <h2 style="color: #28a745;">✓ Карта активна</h2>
+            <p style="margin-bottom: 20px;">Оплата получена. Ваша корпоративная карта готова к работе.</p>
             <div style="background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%); color: white; padding: 20px; border-radius: 12px; text-align: left; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
                     <strong style="font-size: 18px;">Veris Business</strong>
@@ -35,10 +34,41 @@
                     <span>12/28</span>
                 </div>
             </div>
-            <button style="margin-top: 25px; background-color: #28a745; width: 100%; border: none; padding: 10px 20px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;" onclick="window.Telegram.WebApp.close()">Закрыть</button>
+            <button style="margin-top: 25px; background-color: #28a745; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;" onclick="window.Telegram.WebApp.close()">Закрыть</button>
         `;
     }
 
+    // ЭКРАН 2: ОПЛАТА. 
+    function showPaymentScreen() {
+        const cardContainer = document.querySelector('.card');
+        cardContainer.innerHTML = `
+            <h2 style="color: #007bff;">KYC пройден</h2>
+            <p style="margin-bottom: 20px;">Личность подтверждена. Для выпуска карты необходимо оплатить активацию.</p>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+                <strong>К оплате:</strong> <span style="color: #28a745; font-size: 18px; float: right;">50 USDT</span><br>
+                <span style="font-size: 12px; color: #666;">Сеть: TRC-20</span>
+            </div>
+            <button id="pay-btn" style="background-color: #007bff; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;">Оплатить 50 USDT</button>
+        `;
+
+        // Обработчик кнопки оплаты (сейчас это заглушка, позже прикрутим реальный эквайринг крипты)
+        document.getElementById('pay-btn').addEventListener('click', function() {
+            this.innerText = "Обработка платежа...";
+            this.disabled = true;
+            this.style.backgroundColor = "#ccc";
+            
+            // Сообщаем серверу, что деньги получены
+            fetch('https://veris-backend-9mv0.onrender.com/api/save-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telegramId: tgUserId })
+            }).then(() => {
+                showCard(); // Выдаем карту ТОЛЬКО после подтверждения оплаты
+            });
+        });
+    }
+
+    // ЭКРАН 1: KYC. Загрузка виджета NeuroVision
     function loadKYCWidgetScript(callback) {
         if (window.KYCWidget) { callback(); return; }
         const script = document.createElement("script");
@@ -54,47 +84,46 @@
             .then(res => res.json())
             .then(data => {
                 if (!data.success && !data.encryptedKey) throw new Error("Ошибка ключа");
-                
                 window.KYCWidget.setupKYC({
                     scenarioId: data.scenarioId,
                     clientKey: data.encryptedKey,
                     theme: "light",
                     successCb: function (payload) {
-                        // Отправляем сигнал на бэкенд, что KYC пройден!
+                        // KYC пройден -> Сообщаем серверу -> Переводим на КАССУ
                         fetch('https://veris-backend-9mv0.onrender.com/api/save-kyc-status', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ telegramId: tgUserId })
                         }).then(() => {
-                            // После сохранения рисуем карту
-                            showCard();
+                            showPaymentScreen(); // Показываем кассу, а НЕ карту
                         });
                     }
                 });
             })
-            .catch(err => console.error("Ошибка инициализации:", err));
+            .catch(err => console.error("Ошибка:", err));
     }
 
-    // Главная логика при загрузке страницы
+    // Главная логика распределения клиентов при запуске
     document.addEventListener("DOMContentLoaded", function () {
         const button = document.getElementById("open-widget-btn");
 
-        // Спрашиваем бэкенд: этот человек уже проходил KYC?
         fetch(`https://veris-backend-9mv0.onrender.com/api/check-status?telegramId=${tgUserId}`)
             .then(res => res.json())
             .then(data => {
-                if (data.verified) {
-                    // Человек есть в базе, выдаем карту сразу
+                if (data.isPaid) {
+                    // Клиент прошел KYC И оплатил = Сразу даем карту
                     showCard();
+                } else if (data.kycPassed && !data.isPaid) {
+                    // Клиент прошел KYC, но НЕ оплатил = Выгоняем на кассу
+                    showPaymentScreen();
                 } else {
-                    // Человека нет в базе, готовим кнопку KYC
+                    // Новый клиент = Отправляем на верификацию
                     loadKYCWidgetScript(function () {
                         button.disabled = false;
                         button.addEventListener("click", openKYCWidget);
                     });
                 }
-            })
-            .catch(err => console.error("Ошибка проверки статуса:", err));
+            });
     });
 </script>
 </head>
