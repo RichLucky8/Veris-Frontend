@@ -13,10 +13,16 @@
     </style>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
+    // 1. Инициализация Telegram
     const tg = window.Telegram?.WebApp;
     const tgUserId = String(tg?.initDataUnsafe?.user?.id || "test_user_123");
 
-    // ЭКРАН 3: ФИНАЛ. Рисуем оплаченную карту
+    // Раскрываем приложение на весь экран (для красоты и удобства)
+    if (tg) {
+        tg.expand(); 
+    }
+
+    // 2. ЭКРАН 3: ФИНАЛ. Рисуем оплаченную карту
     function showCard() {
         const cardContainer = document.querySelector('.card');
         cardContainer.innerHTML = `
@@ -35,11 +41,11 @@
                     <span>12/28</span>
                 </div>
             </div>
-            <button style="margin-top: 25px; background-color: #28a745; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;" onclick="window.Telegram.WebApp.close()">Закрыть</button>
+            <button style="margin-top: 25px; background-color: #28a745; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;" onclick="window.Telegram?.WebApp?.close()">Закрыть</button>
         `;
     }
 
-    // ЭКРАН 2: ОПЛАТА. 
+    // 3. ЭКРАН 2: ОПЛАТА. Требуем деньги после KYC
     function showPaymentScreen() {
         const cardContainer = document.querySelector('.card');
         cardContainer.innerHTML = `
@@ -52,31 +58,31 @@
             <button id="pay-btn" style="background-color: #007bff; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;">Оплатить 50 USDT</button>
         `;
 
-        // Обработчик кнопки оплаты (сейчас это заглушка, позже прикрутим реальный эквайринг крипты)
         document.getElementById('pay-btn').addEventListener('click', function() {
             this.innerText = "Обработка платежа...";
             this.disabled = true;
             this.style.backgroundColor = "#ccc";
             
-            // Сообщаем серверу, что деньги получены
             fetch('https://veris-backend-9mv0.onrender.com/api/save-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ telegramId: tgUserId })
             }).then(() => {
-                showCard(); // Выдаем карту ТОЛЬКО после подтверждения оплаты
-            });
+                showCard(); 
+            }).catch(err => console.error("Ошибка при оплате:", err));
         });
     }
 
-    // ЭКРАН 1: KYC. Загрузка виджета NeuroVision
+    // 4. ЭКРАН 1: KYC. Загрузка виджета NeuroVision
     function loadKYCWidgetScript(callback) {
-        if (window.KYCWidget) { callback(); return; }
+        if (window.KYCWidget) { 
+            callback(); 
+            return; 
+        }
         const script = document.createElement("script");
         script.src = "https://kyc.neuro-vision.ru/lib/widget-lib.js";
-        script.defer = true;
-        script.crossOrigin = "anonymous";
         script.onload = callback;
+        script.onerror = () => console.error("Сбой загрузки библиотеки NeuroVision");
         document.head.appendChild(script);
     }
 
@@ -84,27 +90,28 @@
         fetch('https://veris-backend-9mv0.onrender.com/api/get-kyc-token')
             .then(res => res.json())
             .then(data => {
-                if (!data.success && !data.encryptedKey) throw new Error("Ошибка ключа");
+                if (!data.success && !data.encryptedKey) throw new Error("Ошибка ключа с сервера");
                 window.KYCWidget.setupKYC({
                     scenarioId: data.scenarioId,
                     clientKey: data.encryptedKey,
                     theme: "light",
                     successCb: function (payload) {
-                        // KYC пройден -> Сообщаем серверу -> Переводим на КАССУ
                         fetch('https://veris-backend-9mv0.onrender.com/api/save-kyc-status', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ telegramId: tgUserId })
                         }).then(() => {
-                            showPaymentScreen(); // Показываем кассу, а НЕ карту
+                            showPaymentScreen();
                         });
                     }
                 });
             })
-            .catch(err => console.error("Ошибка:", err));
+            .catch(err => {
+                console.error("Критическая ошибка запуска KYC:", err);
+            });
     }
 
-    // Главная логика распределения клиентов при запуске
+    // 5. ГЛАВНАЯ ЛОГИКА
     document.addEventListener("DOMContentLoaded", function () {
         const button = document.getElementById("open-widget-btn");
 
@@ -112,18 +119,24 @@
             .then(res => res.json())
             .then(data => {
                 if (data.isPaid) {
-                    // Клиент прошел KYC И оплатил = Сразу даем карту
                     showCard();
-                } else if (data.kycPassed && !data.isPaid) {
-                    // Клиент прошел KYC, но НЕ оплатил = Выгоняем на кассу
+                } else if (data.kycPassed) {
                     showPaymentScreen();
                 } else {
-                    // Новый клиент = Отправляем на верификацию
+                    // Новый клиент: загружаем скрипт, затем включаем кнопку
                     loadKYCWidgetScript(function () {
                         button.disabled = false;
                         button.addEventListener("click", openKYCWidget);
                     });
                 }
+            })
+            .catch(err => {
+                console.error("Ошибка связи с ядром Render:", err);
+                // Запасной план: если сервер долго отвечает, всё равно даем пройти KYC
+                loadKYCWidgetScript(function () {
+                    button.disabled = false;
+                    button.addEventListener("click", openKYCWidget);
+                });
             });
     });
 </script>
