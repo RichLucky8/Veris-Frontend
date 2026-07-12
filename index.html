@@ -11,91 +11,92 @@
         button:hover { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
+<script>
+    // Получаем Telegram ID текущего пользователя
+    const tg = window.Telegram.WebApp;
+    const tgUserId = tg.initDataUnsafe?.user?.id || "test_user_123";
 
-    <script>
-        function loadKYCWidgetScript(callback) {
-            if (window.KYCWidget) {
-                callback();
-                return;
-            }
-            const existingScript = document.getElementById("kyc-widget-script-id");
-            if (existingScript) return;
+    // Функция, которая рисует красивую карту
+    function showCard() {
+        const cardContainer = document.querySelector('.card');
+        cardContainer.innerHTML = `
+            <h2 style="color: #28a745;">✓ Личность подтверждена</h2>
+            <p style="margin-bottom: 20px;">Ваша виртуальная корпоративная карта выпущена.</p>
+            <div style="background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%); color: white; padding: 20px; border-radius: 12px; text-align: left; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                    <strong style="font-size: 18px;">Veris Business</strong>
+                    <span style="font-style: italic; color: #00ff88;">USDT</span>
+                </div>
+                <div style="font-family: monospace; font-size: 22px; letter-spacing: 2px; margin-bottom: 15px;">
+                    4532 01** **** 8877
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc; text-transform: uppercase;">
+                    <span>ВЕРИФИЦИРОВАН</span>
+                    <span>12/28</span>
+                </div>
+            </div>
+            <button style="margin-top: 25px; background-color: #28a745; width: 100%; border: none; padding: 10px 20px; color: white; border-radius: 6px; cursor: pointer; font-size: 16px;" onclick="window.Telegram.WebApp.close()">Закрыть</button>
+        `;
+    }
 
-            const script = document.createElement("script");
-            script.id = "kyc-widget-script-id";
-            // 
-            script.src = "https://kyc.neuro-vision.ru/lib/widget-lib.js";
-            script.defer = true;
-            script.crossOrigin = "anonymous";
-            script.onload = callback;
-            document.head.appendChild(script);
-        }
+    function loadKYCWidgetScript(callback) {
+        if (window.KYCWidget) { callback(); return; }
+        const script = document.createElement("script");
+        script.src = "https://kyc.neuro-vision.ru/lib/widget-lib.js";
+        script.defer = true;
+        script.crossOrigin = "anonymous";
+        script.onload = callback;
+        document.head.appendChild(script);
+    }
 
-        function openKYCWidget() {
-            if (!window.KYCWidget) {
-                console.error("KYCWidget is not loaded yet.");
-                return;
-            }
-            // НАСТРОЙКА ВИДЖЕТА. Замени 'YOUR_KEY' на реальные значения!
-           // 
-    // 
-    fetch('https://veris-backend-9mv0.onrender.com/api/get-kyc-token') // 
-        .then(response => response.json())
-        .then(data => {
-            if (!data.success) throw new Error("Ошибка получения ключа");
-            
-            // Теперь инициализируем виджет с данными от сервера
-            window.KYCWidget.setupKYC({
-                scenarioId: data.scenarioId,
-                clientKey: data.encryptedKey, 
-                theme: "light",
-                topOffset: 0,
-                bottomOffset: 0,
-                closeCb: function () {
-                    console.log("CLOSE CALLBACK");
-                },
-                successCb: function (payload) {
-                console.log("SUCCESS CALLBACK", payload);
+    function openKYCWidget() {
+        fetch('https://veris-backend-9mv0.onrender.com/api/get-kyc-token')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success && !data.encryptedKey) throw new Error("Ошибка ключа");
                 
-                // Находим стартовый блок на экране
-                const cardContainer = document.querySelector('.card');
-                
-                // Заменяем приветствие и кнопку на дизайн готовой карты
-                cardContainer.innerHTML = `
-                    <h2 style="color: #28a745;">✓ Личность подтверждена</h2>
-                    <p style="margin-bottom: 20px;">Ваша виртуальная корпоративная карта выпущена.</p>
-                    
-                    <div style="background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%); color: white; padding: 20px; border-radius: 12px; text-align: left; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-                            <strong style="font-size: 18px;">Veris Business</strong>
-                            <span style="font-style: italic; color: #00ff88;">USDT</span>
-                        </div>
-                        <div style="font-family: monospace; font-size: 22px; letter-spacing: 2px; margin-bottom: 15px;">
-                            4532 01** **** 8877
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc; text-transform: uppercase;">
-                            <span>IVAN V.</span>
-                            <span>12/28</span>
-                        </div>
-                    </div>
-                    
-                    <button style="margin-top: 25px; background-color: #28a745; width: 100%;" onclick="window.Telegram.WebApp.close()">Закрыть приложение</button>
-                `;
-            }
-            });
-        })
-        .catch(err => console.error("Ошибка инициализации:", err));
-        }
+                window.KYCWidget.setupKYC({
+                    scenarioId: data.scenarioId,
+                    clientKey: data.encryptedKey,
+                    theme: "light",
+                    successCb: function (payload) {
+                        // Отправляем сигнал на бэкенд, что KYC пройден!
+                        fetch('https://veris-backend-9mv0.onrender.com/api/save-kyc-status', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ telegramId: tgUserId })
+                        }).then(() => {
+                            // После сохранения рисуем карту
+                            showCard();
+                        });
+                    }
+                });
+            })
+            .catch(err => console.error("Ошибка инициализации:", err));
+    }
 
-        // Подгружаем скрипт при загрузке страницы
-        document.addEventListener("DOMContentLoaded", function () {
-            const button = document.getElementById("open-widget-btn");
-            loadKYCWidgetScript(function () {
-                button.disabled = false; // Включаем кнопку, когда скрипт загрузился
-            });
-            button.addEventListener("click", openKYCWidget);
-        });
-    </script>
+    // Главная логика при загрузке страницы
+    document.addEventListener("DOMContentLoaded", function () {
+        const button = document.getElementById("open-widget-btn");
+
+        // Спрашиваем бэкенд: этот человек уже проходил KYC?
+        fetch(`https://veris-backend-9mv0.onrender.com/api/check-status?telegramId=${tgUserId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.verified) {
+                    // Человек есть в базе, выдаем карту сразу
+                    showCard();
+                } else {
+                    // Человека нет в базе, готовим кнопку KYC
+                    loadKYCWidgetScript(function () {
+                        button.disabled = false;
+                        button.addEventListener("click", openKYCWidget);
+                    });
+                }
+            })
+            .catch(err => console.error("Ошибка проверки статуса:", err));
+    });
+</script>
 </head>
 <body>
     <div class="card">
